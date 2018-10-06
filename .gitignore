@@ -2,3 +2,4 @@ dep
 lib
 bin
 zig-cache
+src/enet.zig
