@@ -3,7 +3,7 @@ BINDIR=bin
 LIBDIR=lib
 DEPDIR=dep
 ZC=zig
-CLIENT_ZFLAGS=-L$(LIBDIR) --library c --library glfw --library enet -isystem $(DEPDIR)/glfw/include
+CLIENT_ZFLAGS=-L$(LIBDIR) --library c --library glfw3 --library enet -isystem $(DEPDIR)/glfw/include
 SERVER_ZFLAGS=-L$(LIBDIR) --library c --library enet
 CMAKE=cmake
 SRC=$(shell find src -type f)
@@ -36,10 +36,10 @@ run-client: $(ALL_DIRS) $(BINDIR)/client
 	$(BINDIR)/client
 
 $(BINDIR)/server: $(LIBDIR)/libenet.a $(SRC)
-	$(ZC) build-exe $(ZFLAGS) --output $@ $(SRCDIR)/server/main.zig
+	$(ZC) build-exe $(SERVER_ZFLAGS) --output $@ $(SRCDIR)/server/main.zig
 
 $(BINDIR)/client: $(LIBDIR)/libenet.a $(LIBDIR)/libglfw3.a $(SRC)
-	$(ZC) build-exe $(ZFLAGS) --output $@ $(SRCDIR)/client/main.zig
+	$(ZC) build-exe $(CLIENT_ZFLAGS) --output $@ $(SRCDIR)/client/main.zig
 
 # Builds enet.h into a .zig. This is because some platforms fail to properly
 # @cimport the enet.h file, so when porting to other platforms we can apply
