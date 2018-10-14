@@ -1,3 +1,8 @@
+# Options:
+# osx_enet_patch (default 0)
+# Set to 1 to apply a patch to enet.zig to make it compatible with OSX. The
+# current zig translate-c is broken.
+
 SRCDIR=src
 BINDIR=bin
 LIBDIR=lib
@@ -12,7 +17,7 @@ SRC+=$(SRCDIR)/enet.zig # enet.zig is generated from enet.h
 ALL: $(ALL_DIRS)
 	$(info Targets: run-server, run-client, clean (cleans built objects), clean-all (cleans dependencies and built objects))
 
-ALL_DIRS=$(SRCDIR) $(BINDIR) $(LIBDIR) $(DEPDIR)
+ALL_DIRS=$(SRCDIR) $(BINDIR) $(LIBDIR) $(DEPDIR) $(DEPDIR)/tmp/
 $(ALL_DIRS):
 	mkdir -p $@
 
@@ -45,7 +50,12 @@ $(BINDIR)/client: $(LIBDIR)/libenet.a $(LIBDIR)/libglfw3.a $(SRC)
 # @cimport the enet.h file, so when porting to other platforms we can apply
 # extra post-processing here to correct the translated .h files.
 $(SRCDIR)/enet.zig: $(DEPDIR)/enet/include
-	$(ZC) translate-c -isystem $< $</enet/enet.h > $@
+	$(ZC) translate-c -isystem $< $</enet/enet.h > $(DEPDIR)/tmp/enet.zig
+	# Apply patch if osx_enet_patch=1.
+	if [ "$$osx_enet_patch" == "1" ] ; then \
+		patch $(DEPDIR)/tmp/enet.zig patches/osx_enet.zig.patch ; \
+	fi
+	cp $(DEPDIR)/tmp/enet.zig $@
 
 ################
 # Dependencies #
