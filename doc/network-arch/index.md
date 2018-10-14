@@ -22,6 +22,13 @@ but we can also partially update certain components if needs be.
 
 #### Issues
 
+State updates with unreliable delivery are problematic, since we only update
+with state deltas. We need to record which state update deltas were received
+and which were dropped. Then we need to re-transmit the ones that were dropped.
+
+The recipient then needs to discard the accidental double-sends, and we also
+need to not bother re-transmitting data that's been invalidated by new datas.
+
 ##### Unknown bitmask size {#unknown-bitmask-size}
 
 For a bitmask to work, we need a list of components that need to be update per
