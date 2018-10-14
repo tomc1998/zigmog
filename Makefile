@@ -3,11 +3,23 @@
 # Set to 1 to apply a patch to enet.zig to make it compatible with OSX. The
 # current zig translate-c is broken.
 
+os=
+ifeq ($(shell uname -s),Darwin)
+	os=osx
+endif
+
 ifndef osx_enet_patch
 	osx_enet_patch=0
-	ifeq ($(shell uname -s),Darwin)
+	ifeq ($(os),osx)
 		osx_enet_patch=1
 	endif
+endif
+
+GLFW_LIB=
+ifeq ($(os),osx)
+GLFW_LIB=$(LIBDIR)/libglfw.3.dylib
+else
+GLFW_LIB=$(LIBDIR)/libglfw.so.3
 endif
 
 SRCDIR=src
@@ -15,8 +27,15 @@ BINDIR=bin
 LIBDIR=lib
 DEPDIR=dep
 ZC=zig
-CLIENT_ZFLAGS=-L$(LIBDIR) --library c --library glfw3 --library enet -isystem $(DEPDIR)/glfw/include
-SERVER_ZFLAGS=-L$(LIBDIR) --library c --library enet
+CLIENT_ZFLAGS:=-L$(LIBDIR) -rpath $(LIBDIR) \
+	            -framework OpenGL \
+	            --library $(GLFW_LIB) \
+	            --library c \
+	            --library enet \
+	            -isystem $(DEPDIR)/glfw/include
+SERVER_ZFLAGS=-L$(LIBDIR) \
+							--library c \
+							--library enet
 CMAKE=cmake
 SRC=$(shell find src -type f)
 SRC+=$(SRCDIR)/enet.zig # enet.zig is generated from enet.h
@@ -50,7 +69,7 @@ run-client: $(ALL_DIRS) $(BINDIR)/client
 $(BINDIR)/server: $(LIBDIR)/libenet.a $(SRC)
 	$(ZC) build-exe $(SERVER_ZFLAGS) --output $@ $(SRCDIR)/server/main.zig
 
-$(BINDIR)/client: $(LIBDIR)/libenet.a $(LIBDIR)/libglfw3.a $(SRC)
+$(BINDIR)/client: $(LIBDIR)/libenet.a $(GLFW_LIB) $(SRC)
 	$(ZC) build-exe $(CLIENT_ZFLAGS) --output $@ $(SRCDIR)/client/main.zig
 
 # Builds enet.h into a .zig. This is because some platforms fail to properly
@@ -76,12 +95,14 @@ $(LIBDIR)/libenet.a:
 	cd $(DEPDIR)/enet/build && cmake .. && make
 	mv $(DEPDIR)/enet/build/libenet.a $@
 
-$(LIBDIR)/libglfw3.a:
+
+$(GLFW_LIB):
 	if [ ! -d $(DEPDIR)/glfw ] ; then \
 		git clone https://github.com/glfw/glfw $(DEPDIR)/glfw ; \
 	fi
 	mkdir -p $(DEPDIR)/glfw/build
 	cd $(DEPDIR)/glfw/build ; \
-	cmake .. -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF -DGLFW_INSTALL=OFF ; \
+	cmake .. -DBUILD_SHARED_LIBS=ON -DGLFW_BUILD_EXAMPLES=OFF \
+	         -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF -DGLFW_INSTALL=OFF ; \
 	make
-	mv $(DEPDIR)/glfw/build/src/libglfw3.a $@
+	mv $(DEPDIR)/glfw/build/src/$(notdir $@) $@
