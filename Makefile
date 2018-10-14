@@ -3,6 +3,13 @@
 # Set to 1 to apply a patch to enet.zig to make it compatible with OSX. The
 # current zig translate-c is broken.
 
+ifndef osx_enet_patch
+	osx_enet_patch=0
+	ifeq ($(shell uname -s),Darwin)
+		osx_enet_patch=1
+	endif
+endif
+
 SRCDIR=src
 BINDIR=bin
 LIBDIR=lib
@@ -51,10 +58,10 @@ $(BINDIR)/client: $(LIBDIR)/libenet.a $(LIBDIR)/libglfw3.a $(SRC)
 # extra post-processing here to correct the translated .h files.
 $(SRCDIR)/enet.zig: $(DEPDIR)/enet/include
 	$(ZC) translate-c -isystem $< $</enet/enet.h > $(DEPDIR)/tmp/enet.zig
-	# Apply patch if osx_enet_patch=1.
-	if [ "$$osx_enet_patch" == "1" ] ; then \
-		patch $(DEPDIR)/tmp/enet.zig patches/osx_enet.zig.patch ; \
-	fi
+# Apply patch if osx_enet_patch=1.
+ifeq ($(osx_enet_patch), 1)
+	patch $(DEPDIR)/tmp/enet.zig patches/osx_enet.zig.patch
+endif
 	cp $(DEPDIR)/tmp/enet.zig $@
 
 ################
