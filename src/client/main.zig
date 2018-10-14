@@ -2,6 +2,8 @@ const std = @import("std");
 const enet = @import("../enet.zig");
 const Renderer = @import("renderer.zig").Renderer;
 const glfw = @import("../c.zig").glfw;
+const state = @import("state.zig");
+const ECS = @import("ecs").ECS;
 
 var client : *enet.ENetHost = undefined;
 
@@ -15,7 +17,11 @@ fn initWindow() *glfw.GLFWwindow {
     return window;
 }
 
-pub fn main() u8 {
+const NetError = error {
+    ServerDisconnected,
+};
+
+pub fn connectToServer() NetError!void {
     // Setup enet socket
     if (enet.enet_initialize() != 0) { std.debug.warn("Failed to initialize enet.\n"); }
     const clientPtr = enet.enet_host_create(null, 1, 2, 0, 0);
@@ -23,8 +29,6 @@ pub fn main() u8 {
         std.debug.warn("Failed to create enet host.\n");
         return 1;
     })[0];
-
-    var window = initWindow();
 
     // Connect to the server
     _ = enet.enet_address_set_host(@ptrCast(?[*]enet.ENetAddress, &serverAddress),
@@ -34,7 +38,7 @@ pub fn main() u8 {
                                              @ptrCast([*]enet.ENetAddress, &serverAddress), 2, 0);
     server = &(serverPtr orelse {
         std.debug.warn("Failed to connect to server.\n");
-        return 1;
+        NetError.ConnectError;
     })[0];
 
     // Wait for connection to complete (5 seconds timeout)
@@ -45,49 +49,50 @@ pub fn main() u8 {
         std.debug.warn("Connected to server.\n");
     } else if (event.type == enet.ENetEventType.ENET_EVENT_TYPE_NONE) {
         std.debug.warn("Timeout connecting to server.\n");
-        return 1;
+        return NetError.ConnectTimeout;
     } else {
         std.debug.warn("Unknown error: {}", event);
         return 1;
     }
+}
 
+pub fn pollEnet() NetError!void {
+    while (enet.enet_host_service(@ptrCast(?[*]enet.ENetHost, client),
+                                  @ptrCast(?[*]enet.ENetEvent, &event),
+                                  0) > 0) {
+        switch (event.type) {
+            enet.ENetEventType.ENET_EVENT_TYPE_RECEIVE => {
+                std.debug.warn(
+                    "A packet of length {} containing {} was received on channel {}.\n",
+                    event.packet.?[0].dataLength,
+                    event.packet.?[0].data.?[0..event.packet.?[0].dataLength],
+                    event.channelID);
+                // Clean up the packet now that we're done using it.
+                enet.enet_packet_destroy (event.packet);
+            },
+            enet.ENetEventType.ENET_EVENT_TYPE_DISCONNECT => {
+                std.debug.warn("Server disconnected.\n");
+                return NetError.ServerDisconnected;
+            },
+            else => {
+                std.debug.warn("Unexpected event: {}\n", event);
+            }
+        }
+    }
+}
+
+pub fn main() !void {
+    const window = initWindow();
+    const game_state = state.State {
+        .ecs = try ECS.init(std.debug.global_allocator),
+    };
     const renderer = Renderer {};
 
-    while (true) {
-        var packet = enet.enet_packet_create(
-            c"Ping", 4, @bitCast(c_uint, enet.ENET_PACKET_FLAG_RELIABLE));
-        _ = enet.enet_peer_send(@ptrCast(?[*]enet.ENetPeer, server), 0, packet);
-        enet.enet_host_flush(@ptrCast(?[*]enet.ENetHost, client));
-
-        while (!@bitCast(bool, @intCast(u8, glfw.glfwWindowShouldClose(window)))) {
-            // Poll for responses
-            while (enet.enet_host_service(@ptrCast(?[*]enet.ENetHost, client),
-                                          @ptrCast(?[*]enet.ENetEvent, &event),
-                                          0) > 0) {
-                switch (event.type) {
-                    enet.ENetEventType.ENET_EVENT_TYPE_RECEIVE => {
-                        std.debug.warn(
-                            "A packet of length {} containing {} was received on channel {}.\n",
-                            event.packet.?[0].dataLength,
-                            event.packet.?[0].data.?[0..event.packet.?[0].dataLength],
-                            event.channelID);
-                        // Clean up the packet now that we're done using it.
-                        enet.enet_packet_destroy (event.packet);
-                    },
-                    enet.ENetEventType.ENET_EVENT_TYPE_DISCONNECT => {
-                        std.debug.warn("Server disconnected.\n");
-                        return 1;
-                    },
-                    else => {
-                        std.debug.warn("Unexpected event: {}\n", event);
-                    }
-                }
-            }
-            glfw.glClear(glfw.GL_COLOR_BUFFER_BIT);
-            renderer.render(1.0, 1.0);
-            glfw.glfwSwapBuffers(window);
-            glfw.glfwPollEvents();
-        }
-        return 0;
+    while (!@bitCast(bool, @intCast(u8, glfw.glfwWindowShouldClose(window)))) {
+        // Poll for responses
+        glfw.glClear(glfw.GL_COLOR_BUFFER_BIT);
+        renderer.render(1.0, 1.0);
+        glfw.glfwSwapBuffers(window);
+        glfw.glfwPollEvents();
     }
 }

@@ -32,6 +32,8 @@ CLIENT_ZFLAGS:=-L$(LIBDIR) -rpath $(LIBDIR) \
 	            --library $(GLFW_LIB) \
 	            --library c \
 	            --library enet \
+	            --pkg-begin ecs $(SRCDIR)/ecs/index.zig \
+	            --pkg-end \
 	            -isystem $(DEPDIR)/glfw/include
 SERVER_ZFLAGS=-L$(LIBDIR) \
 							--library c \
