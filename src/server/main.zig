@@ -71,7 +71,7 @@ pub fn pollEnet(alloc: *std.mem.Allocator) !void {
                 enet.enet_packet_destroy(event.packet);
                 // Send a response.
                 var packet = enet.enet_packet_create(
-                    "Pong", 4, @bitCast(c_uint, enet.ENET_PACKET_FLAG_RELIABLE));
+                    c"Pong", 4, @bitCast(c_uint, enet.ENET_PACKET_FLAG_RELIABLE));
                 _ = enet.enet_peer_send(@ptrCast(?[*]enet.ENetPeer, event.peer), 0, packet);
                 enet.enet_host_flush(@ptrCast(?[*]enet.ENetHost, server));
             },

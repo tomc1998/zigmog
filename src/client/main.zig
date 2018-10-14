@@ -46,7 +46,7 @@ pub fn main() u8 {
     while (true) {
         _ = c.sleep(1);
         var packet = enet.enet_packet_create(
-            "Ping", 4, @bitCast(c_uint, enet.ENET_PACKET_FLAG_RELIABLE));
+            c"Ping", 4, @bitCast(c_uint, enet.ENET_PACKET_FLAG_RELIABLE));
         _ = enet.enet_peer_send(@ptrCast(?[*]enet.ENetPeer, server), 0, packet);
         enet.enet_host_flush(@ptrCast(?[*]enet.ENetHost, client));
 
